@@ -4,9 +4,62 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Threading;
+using Newtonsoft.Json;
+using System.IO;
 
 namespace cli_life
 {
+    public class Config
+    {
+        public int width{ get; set; }
+        public int height { get; set; }
+        public int cellSize { get; set; }
+        public double liveDensity { get; set; }
+        public void Print (Board board, String put)
+        {
+            String text = "";
+            for (int row = 0; row < board.Rows; row++)
+            {
+                for (int col = 0; col < board.Columns; col++)
+                {
+                    var cell = board.Cells[col, row];
+                    if (cell.IsAlive)
+                    {
+                        text += '*';
+                    }
+                    else
+                    {
+                        text += ' ';
+                    }
+                }
+                text += '\n';
+            }
+            File.WriteAllText(put, text);
+        }
+        public void zagruzka(Board board, String put)
+        {
+            String text = File.ReadAllText(put);
+            int i = 0;
+            int j = -1;
+            foreach (char c in text)
+            {
+                j += 1;
+                if (c == '*')
+                {
+                    board.Cells[j, i].IsAlive = true;
+                }
+                if (c == ' ')
+                {
+                    board.Cells[j, i].IsAlive = false;
+                }
+                if (c == '\n')
+                {
+                    i += 1;
+                    j = -1;
+                }
+            }
+        }
+    }
     public class Cell
     {
         public bool IsAlive;
@@ -35,17 +88,17 @@ namespace cli_life
         public int Width { get { return Columns * CellSize; } }
         public int Height { get { return Rows * CellSize; } }
 
-        public Board(int width, int height, int cellSize, double liveDensity = .1)
+        public Board(Config config)
         {
-            CellSize = cellSize;
+            CellSize = config.cellSize;
 
-            Cells = new Cell[width / cellSize, height / cellSize];
+            Cells = new Cell[config.width / config.cellSize, config.height / config.cellSize];
             for (int x = 0; x < Columns; x++)
                 for (int y = 0; y < Rows; y++)
                     Cells[x, y] = new Cell();
 
             ConnectNeighbors();
-            Randomize(liveDensity);
+            Randomize(config.liveDensity);
         }
 
         readonly Random rand = new Random();
@@ -88,14 +141,11 @@ namespace cli_life
     }
     class Program
     {
+       
         static Board board;
-        static private void Reset()
+        static private void Reset(Config config)
         {
-            board = new Board(
-                width: 50,
-                height: 20,
-                cellSize: 1,
-                liveDensity: 0.5);
+            board = new Board(config);
         }
         static void Render()
         {
@@ -118,11 +168,14 @@ namespace cli_life
         }
         static void Main(string[] args)
         {
-            Reset();
+            Config config=JsonConvert.DeserializeObject<Config>(File.ReadAllText("config.json"));
+            Reset(config);
+            config.zagruzka(board, "file.txt");
             while(true)
             {
                 Console.Clear();
                 Render();
+                config.Print(board, "file.txt");
                 board.Advance();
                 Thread.Sleep(1000);
             }
